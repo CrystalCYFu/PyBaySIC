@@ -2,7 +2,7 @@
 
 **BaySIC** is a Bayesian calibration for the Arctic sea ice biomarker IP<sub>25</sub> and associated open-water phytoplankton biomarkers (brassicasterol or dinosterol). It can be used to predict the ln(PIP<sub>25</sub>) index from sea ice concentration (SIC), or vice versa. When using this model, please cite:
 
-*Citation...*
+Fu, C. Y., Osman, M. B., & Aquino-López, M. A. (2025). Bayesian calibration for the Arctic sea ice biomarker IP<sub>25</sub>. _Paleoceanography and Paleoclimatology_, 40, e2024PA005048. https://doi.org/10.1029/2024PA005048
 
 ## Features
 

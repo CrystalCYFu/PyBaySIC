@@ -4,6 +4,8 @@
 
 Fu, C. Y., Osman, M. B., & Aquino-López, M. A. (2025). Bayesian calibration for the Arctic sea ice biomarker IP<sub>25</sub>. _Paleoceanography and Paleoclimatology_, 40, e2024PA005048. https://doi.org/10.1029/2024PA005048
 
+The MATLAB implementation of **BaySIC** is available here: https://github.com/mattosman/BaySIC-MATLAB
+
 ## Features
 
 - **Nonlinearity**: BaySIC uses an inverse logistic function to characterise the nonlinear relationship between SIC and ln(PIP<sub>25</sub>), respecting the natural limit of SIC between 0 and 1.

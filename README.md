@@ -4,7 +4,7 @@
 
 Fu, C. Y., Osman, M. B., & Aquino-López, M. A. (2025). Bayesian calibration for the Arctic sea ice biomarker IP<sub>25</sub>. _Paleoceanography and Paleoclimatology_, 40, e2024PA005048. https://doi.org/10.1029/2024PA005048
 
-The MATLAB implementation of **BaySIC** is available here: https://github.com/mattosman/BaySIC-MATLAB
+💡 **Prefer MATLAB?** Check out [BaySIC-MATLAB](https://github.com/mattosman/BaySIC-MATLAB)!
 
 ## Features
 
@@ -22,7 +22,7 @@ For more details, please refer to the source publication.
 Make sure you have the following installed:
 
 - Python 3.8
-- Required libraries: Matplotlib, NumPy, SciPy, tqdm
+- Required libraries: Matplotlib, NumPy, Pandas, SciPy
 
 ### Installation
 
@@ -42,43 +42,74 @@ import PyBaySIC
 import matplotlib.pyplot as plt
 import numpy as np
 
-test = PyBaySIC.BaySIC()
+baysic = PyBaySIC.BaySIC()
 ```
 
-### Forward Modelling
+---
+
+### 1. Forward Modelling
 
 To predict ln(P<sub>D</sub>IP<sub>25</sub>) or ln(P<sub>B</sub>IP<sub>25</sub>) from SIC, use `forward()` with the following inputs:
-1. `sic` (0-1)
-2. `index` (`'dino'`/`'bras'`)
+1. `sic`: scalar or vector of fractional SIC (0–1)
+2. `index`: `'dino'` or `'bras'`
 
 *And optionally:*
 
-3. `hdiMass` (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
+3. `mode`: default to `'plot'`
+   - `'data'` returns the posterior distribution evaluated over a grid of ln(PIP<sub>25</sub>) values
+   - `'summary'` returns the maximum a posteriori (MAP) estimate and HDI limits
+4. `hdiMass`: (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
 
 For example:
 
  ```
-sic = 0.92
-
-test.forward(sic, 'dino')
+# Predict ln(PᴅIP₂₅) for SIC=0.92, plot results
+baysic.forward(0.92, 'dino')
 plt.show()
+
+# Predict ln(PʙIP₂₅) and calculate the 50% HDI, print MAP estimate and HDI limits
+sic = (0.2, 0.4, 0.6, 0.8)
+results = baysic.forward(sic, 'bras', 'summary', 0.5)
+print(results)
 ```
 
-The `forward()` function uses the spatially varying (3 months before first SIC decrease) calibration.
+The `forward()` function uses the **spatially varying (3 months before first SIC decrease) calibration**.
 
-### Inverse Modelling
+#### 💡 Calculating mean SIC of the 3 months before the first SIC decrease
+
+The `cal_meanSIC()` function determines the required `sic` from a 12 × 1 input array of monthly SIC climatology, `sic_climo` (0-1).
+
+The second output indicates the represented months (`0` = January, `1` = February, ..., `11` = December).
+
+Where SIC remains constant throughout the year, the month of the first SIC decrease should be drawn from the nearest grid with variable SIC. This can be done using the same function with the following inputs:
+1. `sic_climo`: a 12 × latitude × longitude spatial field of monthly SIC climatologies
+2. `site_lat` and `site_lon`: the latitude and longitude of the target site
+3. `all_lat` and `all_lon`: the latitudes and longitudes corresponding to `sic_climo`
+
+#### 💡 Calculating ln(PIP<sub>25</sub>)
+
+The `cal_lnPIP()` function computes ln(PIP<sub>25</sub>) from [IP<sub>25</sub>] and [brassicasterol]/[dinosterol] with the appropriate detection limit treatment, which is also applied in the inverse model.
+
+It takes the same inputs (1-4) as `inverse()` (see below), and its outputs can be directly compared with the forward modelling results.
+
+---
+
+### 2. Inverse Modelling
 
 To predict SIC from [IP<sub>25</sub>] and [brassicasterol]/[dinosterol], use `inverse()` with the following inputs:
-1. `ip25` (>=0)
-2. `sterol` (>=0), *in the same units as [IP<sub>25</sub>]*
-3. `index` (`'dino'`/`'bras'`)
-4. `unit` (`'toc'`/`'sed'`)
+1. `ip25`: scalar or vector of IP<sub>25</sub> concentration (>=0)
+2. `sterol`: scalar or vector of brassicasterol or dinosterol concentration (>=0), *in the same units as [IP<sub>25</sub>]*
+3. `index`: `'dino'` or `'bras'`
+4. `unit`: `'toc'` or `'sed'`
 
 *And optionally:*
 
-5. `hdiMass` (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
-6. `xType` (`'age'`/`'depth'`), default to index
-7. `xVal` (>=0, in ascending/descending order), *age expected in ka BP, depth expected in m*
+5. `mode`: default to `'plot'`
+   - `'data'` returns the posterior distribution evaluated over a grid of SIC values
+   - `'summary'` returns the MAP estimate and HDI limits
+6. `hdiMass`: (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
+7. `xType`: `'age'` or `'depth'`, default to index
+8. `xVal`: scalar or vector (in ascending/descending order) of age or depth (>=0), *in ka BP or m*
 
 If either `xType` or `xVal` is provided, the other must also be specified.
 
@@ -89,11 +120,11 @@ ip25 = np.random.uniform(0, 0.09, 20)
 sterol = np.random.uniform(0, 9, 20)
 ages = np.arange(0, 40, 2)
 
-test.inverse(ip25, sterol, 'dino', 'toc', xType='age', xVal=ages)
+baysic.inverse(ip25, sterol, 'dino', 'toc', xType='age', xVal=ages)
 plt.show()
 ```
 
-The `inverse()` function uses the Arctic-wide static (March-April-May) calibration.
+The `inverse()` function uses the **Arctic-wide static (March-April-May) calibration**.
 
 ## Contributing
 

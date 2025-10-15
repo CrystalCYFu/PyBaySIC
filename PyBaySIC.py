@@ -10,7 +10,7 @@
 # 3. unit ('toc'/'sed'), for inverse model only
 
 # Optional input:
-# 4. mode ('data'/'summary'), default to 'plot'
+# 4. mode ('data'/'summary'/'samples'), default to 'plot'
 # 5. hdiMass (0-1), default to (0.15, 0.35, 0.55, 0.75, 0.95)
 # 6a. xType ('age'/'depth'), for inverse model only, default to index
 # 6b. xVal (>=0, in ascending/descending order), for inverse model only
@@ -26,6 +26,7 @@
 #         maximum a posteriori (MAP) estimate
 # 'data': posterior distribution
 # 'summary': MAP estimate and HDI limits
+# 'samples': 10000 samples randomly drawn from posterior distribution
 
 # Helper functions:
 # cal_meanSIC -> calculate mean SIC of 3 months before 1st SIC decrease
@@ -345,7 +346,6 @@ class BaySIC:
         legend._legend_box.align = 'left'
 
 
-
     # Function to forward model lnPIP from sic
     def forward(self, sic, index, mode='plot', hdiMass=(0.15,0.35,0.55,0.75,0.95)):
 
@@ -396,16 +396,20 @@ class BaySIC:
                 idx_pairs_list = []
                 mapEstimate_list = []
 
-        # Initialize lists to collect PDFs, or MAP estimates and HDI limits
+        # Initialize lists to collect PDFs, or MAP estimates and HDI limits, or samples
         elif mode == 'data':
             probMassVec_list = []
 
         elif mode == 'summary':
             mapEstimate_list = []
             hdiLimits_list = []
+
+        elif mode == 'samples':
+            samples_list = []
+            num_samples = 10000
             
         else:
-            raise ValueError(f"Invalid value for mode: '{mode}'. Please use one of the following: 'plot', 'data', 'summary'.")
+            raise ValueError(f"Invalid value for mode: '{mode}'. Please use one of the following: 'plot', 'data', 'summary', 'samples'.")
 
         # Loop over sic values
         for k, sic_val in enumerate(sic):
@@ -424,32 +428,38 @@ class BaySIC:
             if mode == 'data':
                 probMassVec_list.append(probMassVec)
 
-            # Create lists of HDI limits (for single data point), find HDI
-            lowerHDI_idx_list = []
-            upperHDI_idx_list = []
-            for m in hdiMass:
-                lowerHDI, upperHDI = self.HDIofGrid(probMassVec, m)
-                lowerHDI_idx_list.append(lowerHDI)
-                upperHDI_idx_list.append(upperHDI)
+            elif mode == 'samples':
+                cdf = np.cumsum(probMassVec)
+                cdf /= cdf[-1]   # normalize to 1
+                random_vals = np.random.rand(num_samples)
+                samples = np.interp(random_vals, cdf, lnPIP_grid)
+                samples_list.append(samples)
 
-            # Find MAP estimate
-            Imap = np.where(probMassVec == np.max(probMassVec))
-            mapEstimate = lnPIP_grid[Imap]
-            mapEstimate = mapEstimate[0]
+            else:
+                # Create lists of HDI limits (for single data point), find HDI
+                lowerHDI_idx_list = []
+                upperHDI_idx_list = []
+                for m in hdiMass:
+                    lowerHDI, upperHDI = self.HDIofGrid(probMassVec, m)
+                    lowerHDI_idx_list.append(lowerHDI)
+                    upperHDI_idx_list.append(upperHDI)
 
-            if mode == 'summary':
-                mapEstimate_list.append(mapEstimate)
-                hdiLimits = [(lnPIP_grid[lower], lnPIP_grid[upper]) for lower, upper in zip(lowerHDI_idx_list, upperHDI_idx_list)]
-                hdiLimits_list.append(hdiLimits)
+                # Find MAP estimate
+                Imap = np.where(probMassVec == np.max(probMassVec))
+                mapEstimate = lnPIP_grid[Imap]
+                mapEstimate = mapEstimate[0]
 
-            # Fill subplots / save results
-            if mode == 'plot':
+                if mode == 'summary':
+                    mapEstimate_list.append(mapEstimate)
+                    hdiLimits = [(lnPIP_grid[lower], lnPIP_grid[upper]) for lower, upper in zip(lowerHDI_idx_list, upperHDI_idx_list)]
+                    hdiLimits_list.append(hdiLimits)
 
-                if len(sic) == 1:
-                    self.fill_subplots(axs, lowerHDI_idx_list, upperHDI_idx_list, lnPIP_grid, hdiMass,
-                                       mapEstimate, probMassVec, c, c1)
-                    self.forward_subplots(axs, sic_val, label)
-                    axs.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
+                # Fill subplots / save results
+                elif len(sic) == 1:
+                        self.fill_subplots(axs, lowerHDI_idx_list, upperHDI_idx_list, lnPIP_grid, hdiMass,
+                                           mapEstimate, probMassVec, c, c1)
+                        self.forward_subplots(axs, sic_val, label)
+                        axs.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
 
                 elif len(sic) <= 6:
                     self.fill_subplots(axs[k], lowerHDI_idx_list, upperHDI_idx_list, lnPIP_grid, hdiMass,
@@ -483,7 +493,7 @@ class BaySIC:
             df = pd.DataFrame(posteriors, columns=[lnPIP for lnPIP in lnPIP_grid])
             return df
 
-        else:
+        elif mode == 'summary':
             mapEstimation_array = np.array(mapEstimate_list)          # convert to array (len(sic),)
             hdiLimits_array = np.array(hdiLimits_list)                # (len(sic), len(hdiMass), 2)
             hdiLimits_array = hdiLimits_array.reshape(len(sic), -1)   # (len(sic), len(hdiMass)*2)
@@ -492,6 +502,11 @@ class BaySIC:
             for m in hdiMass:
                 column_names.extend([f'{m}HDI_lower', f'{m}HDI_upper'])
             df = pd.DataFrame(np.hstack((mapEstimation_array.reshape(-1, 1), hdiLimits_array)), columns=column_names)
+            return df
+        
+        else:
+            all_samples = np.vstack(samples_list)   # stack into 2D array (len(sic), num_samples)
+            df = pd.DataFrame(all_samples, columns=[f'lnPIP25_{i+1}' for i in range(num_samples)])
             return df
 
 
@@ -588,9 +603,13 @@ class BaySIC:
         elif mode == 'summary':
             mapEstimate_list = []
             hdiLimits_list = []
+
+        elif mode == 'samples':
+            samples_list = []
+            num_samples = 10000
             
         else:
-            raise ValueError(f"Invalid value for mode: '{mode}'. Please use one of the following: 'plot', 'data', 'summary'.")
+            raise ValueError(f"Invalid value for mode: '{mode}'. Please use one of the following: 'plot', 'data', 'summary', 'samples'.")
 
         # Loop over lnPIP values
         for k, lnPIP_val in enumerate(lnPIP):
@@ -606,28 +625,34 @@ class BaySIC:
             if mode == 'data':
                 interpolatedPDF_list.append(interpolatedPDF)
 
-            # Create lists of HDI limits (for single data point), find HDI
-            lowerHDI_idx_list = []
-            upperHDI_idx_list = []
-            for m in hdiMass:
-                lowerHDI, upperHDI = self.HDIofGrid(interpolatedPDF, m)
-                lowerHDI_idx_list.append(lowerHDI)
-                upperHDI_idx_list.append(upperHDI)
+            elif mode == 'samples':
+                cdf = np.cumsum(interpolatedPDF)
+                cdf /= cdf[-1]   # normalize to 1
+                random_vals = np.random.rand(num_samples)
+                samples = np.interp(random_vals, cdf, sic_grid)
+                samples_list.append(samples)
 
-            # Find MAP estimate
-            Imap = np.where(interpolatedPDF == np.max(interpolatedPDF))
-            mapEstimate = sic_grid[Imap]
-            mapEstimate = mapEstimate[0]
+            else:
+                # Create lists of HDI limits (for single data point), find HDI
+                lowerHDI_idx_list = []
+                upperHDI_idx_list = []
+                for m in hdiMass:
+                    lowerHDI, upperHDI = self.HDIofGrid(interpolatedPDF, m)
+                    lowerHDI_idx_list.append(lowerHDI)
+                    upperHDI_idx_list.append(upperHDI)
 
-            if mode == 'summary':
-                mapEstimate_list.append(mapEstimate)
-                hdiLimits = [(sic_grid[lower], sic_grid[upper]) for lower, upper in zip(lowerHDI_idx_list, upperHDI_idx_list)]
-                hdiLimits_list.append(hdiLimits)
+                # Find MAP estimate
+                Imap = np.where(interpolatedPDF == np.max(interpolatedPDF))
+                mapEstimate = sic_grid[Imap]
+                mapEstimate = mapEstimate[0]
 
-            # Fill subplot / save results
-            if mode == 'plot':
+                if mode == 'summary':
+                    mapEstimate_list.append(mapEstimate)
+                    hdiLimits = [(sic_grid[lower], sic_grid[upper]) for lower, upper in zip(lowerHDI_idx_list, upperHDI_idx_list)]
+                    hdiLimits_list.append(hdiLimits)
 
-                if len(lnPIP) == 1:
+                # Fill subplot / save results
+                elif len(lnPIP) == 1:
                     self.fill_subplots(axs, lowerHDI_idx_list, upperHDI_idx_list, sic_grid, hdiMass,
                                        mapEstimate, interpolatedPDF, c, c1)
                     self.inverse_subplots(axs, lnPIP_val, xVal[0], xlabel, label)
@@ -664,7 +689,7 @@ class BaySIC:
             df = pd.DataFrame(posteriors, columns=[sic for sic in sic_grid])
             return df
         
-        else:
+        elif mode == 'summary':
             mapEstimation_array = np.array(mapEstimate_list)            # convert to array (len(lnPIP),)
             hdiLimits_array = np.array(hdiLimits_list)                  # (len(lnPIP), len(hdiMass), 2)
             hdiLimits_array = hdiLimits_array.reshape(len(lnPIP), -1)   # (len(lnPIP), len(hdiMass)*2)
@@ -673,6 +698,11 @@ class BaySIC:
             for m in hdiMass:
                 column_names.extend([f'{m}HDI_lower', f'{m}HDI_upper'])
             df = pd.DataFrame(np.hstack((mapEstimation_array.reshape(-1, 1), hdiLimits_array)), columns=column_names)
+            return df
+        
+        else:
+            all_samples = np.vstack(samples_list)   # stack into 2D array (len(lnPIP), num_samples)
+            df = pd.DataFrame(all_samples, columns=[f'SIC_{i+1}' for i in range(num_samples)])
             return df
 
 
@@ -854,8 +884,14 @@ class BaySIC:
             all_lon = np.radians(all_lon)
 
             # Convert latitudes and longitudes to 2D arrays if not already (for broadcasting)
-            if all_lon.shape != all_lat.shape:
+            if all_lat.ndim == 1 and all_lon.ndim == 1:
                 all_lon, all_lat = np.meshgrid(all_lon, all_lat)
+            elif all_lon.ndim != 2 or all_lat.ndim != 2 or all_lon.shape != all_lat.shape:
+                raise ValueError("all_lat and all_lon must be 1D arrays, or 2D arrays of the same shape.")
+
+            # Check if all_lat and all_lon match the spatial dimensions of sic_climo
+            if all_lon.shape != input_shape[1:]:
+                raise ValueError(f"The dimensions of all_lat and all_lon {all_lon.shape} do not match the spatial dimensions of sic_climo {input_shape[1:]}.")
 
             # Find the first decrease month for all grid cells
             first_decrease_all = np.full(input_shape[1:], np.nan)   # preallocate

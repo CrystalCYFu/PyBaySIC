@@ -58,6 +58,7 @@ To predict ln(P<sub>D</sub>IP<sub>25</sub>) or ln(P<sub>B</sub>IP<sub>25</sub>) 
 3. `mode`: default to `'plot'`
    - `'data'` returns the posterior distribution evaluated over a grid of ln(PIP<sub>25</sub>) values
    - `'summary'` returns the maximum a posteriori (MAP) estimate and HDI limits
+   - `'samples'` returns 10000 ln(PIP<sub>25</sub>) samples randomly drawn from the posterior distribution
 4. `hdiMass`: (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
 
 For example:
@@ -107,6 +108,7 @@ To predict SIC from [IP<sub>25</sub>] and [brassicasterol]/[dinosterol], use `in
 5. `mode`: default to `'plot'`
    - `'data'` returns the posterior distribution evaluated over a grid of SIC values
    - `'summary'` returns the MAP estimate and HDI limits
+   - `'samples'` returns 10000 SIC samples randomly drawn from the posterior distribution
 6. `hdiMass`: (0-1), default to `(0.15, 0.35, 0.55, 0.75, 0.95)`
 7. `xType`: `'age'` or `'depth'`, default to index
 8. `xVal`: scalar or vector (in ascending/descending order) of age or depth (>=0), *in ka BP or m*

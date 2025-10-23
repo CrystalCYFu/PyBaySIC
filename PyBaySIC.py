@@ -36,10 +36,7 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-try:
-    import os
-except ImportError:
-    print ("Please install os.")
+import os
 
 try:
     import numpy as np
@@ -79,21 +76,22 @@ class BaySIC:
         self.current_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-    # Function to ensure predictor/hdiMass/xVal is 1) an array of floats and 2) within valid ranges
+    # Function to ensure inputs are an array of floats and within valid ranges
     def check_input(self, value, category):
 
         # Part 1
-        if isinstance(value, (int, float)):     # if predictor/hdiMass/xVal is a single value (integer or float)
-            value = [value]                     # wrap in list
-        
-        if isinstance(value, (list, tuple)):    # if it is a list or a tuple
-            value = np.array(value)             # convert to array
-        elif isinstance(value, (np.ndarray)):   # if it is already an array
-            pass                                # do nothing
-        else:                                   # raise error for everything else
+        if isinstance(value, (int, float, np.integer, np.floating)):   # if interger/float, wrap in list, convert to array
+            value = np.array([value])
+        elif isinstance(value, (list, tuple)):   # if list/tuple/series, convert to array
+            value = np.array(value)
+        elif isinstance(value, pd.Series):
+            value = value.to_numpy()
+        elif isinstance(value, np.ndarray):   # if already array, leave as is
+            pass
+        else:   # raise error for everything else
             raise ValueError(f"Invalid value for {category}: '{value}'.")
 
-        value = value.astype(float)             # cast to float type
+        value = value.astype(float)   # cast to float type
 
         # Part 2
         if category == 'SIC':
@@ -858,6 +856,7 @@ class BaySIC:
         if input_shape == (12,) or input_shape == (12, 1) or input_shape == (1, 12):
             sic_climo = np.squeeze(sic_climo)   # convert to 1D if not already
             results = self.cal_meanSIC_1D(sic_climo)
+            
             return results
 
         # For 3D input, determine first decrease month for all grid cells
@@ -911,6 +910,7 @@ class BaySIC:
             matched_sic = self.find_nearest_non_nan(sic_climo, site_lat, site_lon, all_lat, all_lon)
             matched_sic_climo = matched_sic[0]   # extract SIC climatology
             results = self.cal_meanSIC_1D(matched_sic_climo, first_decrease)
+
             return results
 
         else:
